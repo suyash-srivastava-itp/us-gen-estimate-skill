@@ -1,0 +1,9 @@
+{
+  "spec_clarity": 0.45,
+  "open_questions": 3,
+  "scope_hours": 6,
+  "diff_lines": 800,
+  "test_coverage": 0.4,
+  "complexity": 0.6,
+  "tacit": 0.5
+}

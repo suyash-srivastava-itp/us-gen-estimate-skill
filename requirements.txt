@@ -1,0 +1,14 @@
+# Python packages for US-gen-estimate.
+# Install into the Python you run the scripts with:
+#   python -m pip install -r requirements.txt
+#
+# Python 3.11 is the tested version. Newer 3.x should work; older 3.x is untested.
+#
+# The scripts use the standard library plus numpy only.
+# Tested with numpy 2.4.6 (full selftest passes in a clean venv). The 1.17 lower bound comes from
+# the README (numpy.random.default_rng) and has not been tested.
+numpy>=1.17,<3
+
+# Not installed by pip, and both are optional:
+#   git  - history mining (scripts/mine_history.py) and checking paths in a repository
+#   gh   - GitHub CLI, logged in; pull-request history in scripts/mine_history.py

@@ -1,0 +1,28 @@
+{
+  "_comment": "Presets for the focused-hours size scale (S, M, L, XL). Focused hours are the hours one person works with the agent from starting the branch to a pull request ready for review, with no waiting. A preset may override the scale for a story type (by_type). The person chooses a preset or types their own table; the choice is stored in team.json with its provenance. None of these is a measurement of your team.",
+  "presets": {
+    "agent_assisted": {
+      "label": "Agent-assisted work: S 1 h, M 3 h, L 8 h, XL 16 h (measured on one team's agent-assisted refactoring; replace with your own)",
+      "default": {"S": 1, "M": 3, "L": 8, "XL": 16},
+      "by_type": {}
+    },
+    "agent_assisted_refactor": {
+      "label": "As agent_assisted, with more time for CONSOLIDATE (S 2, M 5, L 12, XL 24 h) and MIGRATE (S 3, M 8, L 16, XL 32 h) stories, which need fixtures, parity runs and live data checks",
+      "default": {"S": 1, "M": 3, "L": 8, "XL": 16},
+      "by_type": {
+        "CONSOLIDATE": {"S": 2, "M": 5, "L": 12, "XL": 24},
+        "MIGRATE": {"S": 3, "M": 8, "L": 16, "XL": 32}
+      }
+    },
+    "conservative": {
+      "label": "Twice the agent_assisted scale: S 2 h, M 6 h, L 16 h, XL 32 h",
+      "default": {"S": 2, "M": 6, "L": 16, "XL": 32},
+      "by_type": {}
+    },
+    "human_only": {
+      "label": "Human-only effort without an agent: S 4 h, M 12 h, L 32 h, XL 64 h",
+      "default": {"S": 4, "M": 12, "L": 32, "XL": 64},
+      "by_type": {}
+    }
+  }
+}

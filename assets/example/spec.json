@@ -1,0 +1,115 @@
+{
+  "_comment": "Worked example for a fictional shop app. Every file fact points at a file under assets/example/repo, so build it with --repo assets/example/repo and the facts verify on any machine.",
+  "schema": 1,
+  "name": "cache-port-example",
+  "epic": {
+    "id": "E1",
+    "title": "Cache access behind one port (worked example)",
+    "goal": "Every cache read and write in the shop app goes through one port, so a page can be cached and tested without environment variables or module state.",
+    "exit_criteria": ["`git grep \"from shop.cache import\" -- shop` matches only the adapter.", "A deploy of the port returns the same pages as before."]
+  },
+  "scope": {"features_expected": 2, "stories_expected": 4, "tasks_policy": "large", "source": "shop/cache.py, shop/routes.py and shop/reports.py"},
+  "templates": {
+    "REFACTOR": {
+      "title": "REFACTOR (code relocated, not rewritten)",
+      "scenarios": [
+        {"title": "Behaviour is unchanged", "given": ["the test suite before the change"], "when": ["it runs after the change"], "then": ["it passes without edits to the expectations"]},
+        {"title": "The old import path keeps working until it is retired", "given": ["code that still imports the old path"], "when": ["it is imported"], "then": ["it works through a re-export that a later story removes"]},
+        {"title": "Tests follow the code", "given": ["tests that import the moved code"], "when": ["the story merges"], "then": ["they are updated in the same pull request", "no test is left skipped"]}
+      ]
+    }
+  },
+  "features": [
+    {"id": "F1", "title": "The cache port", "goal": "A CachePort with an in-process adapter exists and behaves like today's functions.", "why": "shop/cache.py is module-level state, so code that uses it cannot be tested without setting an environment variable first.", "exit_criteria": ["The port and the adapter have unit tests that need no environment variable."]},
+    {"id": "F2", "title": "Adopt the port", "goal": "The handlers and reports use the port and the old functions are gone.", "why": "Until callers move the port is unused.", "exit_criteria": ["No module outside the adapter imports the old functions."]}
+  ],
+  "stories": [
+    {
+      "id": "S1.1", "feature": "F1", "title": "Define the CachePort and keep the in-process store as its adapter", "type": "FEATURE", "horizon": "H1", "size": "M",
+      "role": "a developer adding a cached page",
+      "want": "a CachePort with get, set and invalidate-by-prefix, with the current in-process store as its first adapter",
+      "so": "a page can be cached and tested without environment variables or module state",
+      "context": "`shop/cache.py` is switched on by the `CACHE_ENABLED` environment variable and turns every operation into a no-op when it is off. The port must keep that behaviour.",
+      "facts": [
+        {"claim": "every cache operation is a no-op unless CACHE_ENABLED is 1", "source": "shop/cache.py", "path": "shop/cache.py", "line": 3, "quote": "every operation is a no-op"},
+        {"claim": "invalidation removes every key that starts with a prefix and returns how many were removed", "source": "shop/cache.py", "path": "shop/cache.py", "line": 30, "quote": "def cache_invalidate(prefix):"}
+      ],
+      "scenarios": [
+        {"title": "The in-process adapter keeps entries until they expire", "given": ["the in-process adapter is enabled"], "when": ["I set a key with a time to live of 1 second and read it back", "I read it again after 2 seconds"], "then": ["the first read returns the value", "the second read is a miss"]},
+        {"title": "A disabled cache does nothing and does not fail", "given": ["the adapter is disabled"], "when": ["I call get and set through the port"], "then": ["get returns `None` and set returns `False`", "the caller computes the value and no error is raised"]},
+        {"title": "Prefix invalidation removes only matching keys", "given": ["keys cached under the prefixes `report:` and `product:`"], "when": ["I invalidate the prefix `report:`"], "then": ["the `report:` keys are removed", "the `product:` keys remain", "the number of keys removed is returned"]}
+      ],
+      "deps": [], "paths": ["shop/cache.py"], "prs": 1,
+      "design": "A CachePort protocol in shop/ports.py; the in-process adapter wraps today's functions."
+    },
+    {
+      "id": "S1.2", "feature": "F1", "title": "Prove the cache behaves the same behind the port", "type": "GUARD", "horizon": "H1", "size": "S",
+      "role": "an operator deploying a new version",
+      "want": "a behaviour test that makes the same calls on the old functions and on the port",
+      "so": "a deploy never changes what a cached page returns",
+      "context": "`cache_set` stores a value for 300 seconds unless a time to live is given, and returns `False` when the cache is disabled.",
+      "facts": [
+        {"claim": "the default time to live is 300 seconds", "source": "shop/cache.py", "path": "shop/cache.py", "line": 22, "quote": "def cache_set(key, value, ttl=300):"},
+        {"claim": "cache_set returns False when the cache is disabled", "source": "shop/cache.py", "path": "shop/cache.py", "line": 23, "quote": "Returns False when the cache is disabled."}
+      ],
+      "scenarios": [
+        {"title": "Old and new agree on every call", "given": ["the cache is <state>"], "when": ["I call <call> on the old functions and on the port"], "then": ["both return <result>"],
+         "examples": {"headers": ["state", "call", "result"], "rows": [["disabled", "get \"product:1\"", "None"], ["disabled", "set \"product:1\" \"x\"", "False"], ["enabled", "set \"product:1\" \"x\"", "True"], ["enabled", "get \"missing\"", "None"]]}},
+        {"title": "A difference blocks the change", "given": ["a port whose set returns `None` when the cache is enabled"], "when": ["the behaviour test runs"], "then": ["it fails and names the call", "the pull request cannot merge"]},
+        {"title": "The default time to live is kept", "given": ["a value set without a time to live"], "when": ["it is read after 299 seconds and again after 301 seconds"], "then": ["the first read is a hit", "the second read is a miss"]}
+      ],
+      "deps": ["S1.1"], "paths": ["shop/cache.py"], "prs": 1
+    },
+    {
+      "id": "S2.1", "feature": "F2", "title": "Repoint the handlers and reports to the port", "type": "REFACTOR", "horizon": "H2", "size": "L",
+      "role": "a developer who wants no module to import the cache functions directly",
+      "want": "the product page, the search page and the reports to use the CachePort",
+      "so": "the cache can be replaced or faked in one place",
+      "context": "`shop/routes.py` and `shop/reports.py` import the cache functions directly and build their own keys (`product:{id}`, `search:{query}`, `report:sales:{day}`).",
+      "facts": [
+        {"claim": "the handlers import cache_get and cache_set directly", "source": "shop/routes.py", "path": "shop/routes.py", "line": 2, "quote": "from shop.cache import cache_get, cache_set"},
+        {"claim": "the reports import the three cache functions directly", "source": "shop/reports.py", "path": "shop/reports.py", "line": 2, "quote": "from shop.cache import cache_get, cache_invalidate, cache_set"},
+        {"claim": "only the handlers and the reports import the cache functions", "source": "git grep -l \"from shop.cache import\" -- shop (20 Oct)", "command": "git grep -l \"from shop.cache import\" -- shop"}
+      ],
+      "scenarios": [
+        {"title": "No handler imports the old module", "given": ["the port and the adapter from S1.1"], "when": ["I run `git grep \"from shop.cache import\" -- shop`"], "then": ["only the adapter matches"]},
+        {"title": "Pages are unchanged", "given": ["the product page, the search page and the sales report, with the cache enabled and disabled"], "when": ["they are called before and after the change"], "then": ["their responses are equal", "the cache keys are identical (S1.2)"]},
+        {"title": "Refreshing reports still removes only report keys", "given": ["cached reports and cached product pages"], "when": ["`refresh_reports()` runs after the nightly import"], "then": ["every `report:` key is removed", "the product pages remain cached"]}
+      ],
+      "templates": ["REFACTOR"], "deps": ["S1.2"], "paths": ["shop/routes.py", "shop/reports.py"], "prs": 2,
+      "design": "Each module receives the port through its constructor or a function argument; key construction stays where it is.",
+      "tasks": [
+        {"title": "Repoint the page handlers", "weight": 1, "technical_background": {
+          "current_state": "The two page handlers call the cache functions directly and build their own keys.",
+          "evidence": [{"claim": "the handlers import cache_get and cache_set from the module", "path": "shop/routes.py", "line": 2, "quote": "from shop.cache import cache_get, cache_set"}],
+          "approach": "Pass the port into `product_page` and `search_page`; keep the key construction identical.",
+          "touches": ["shop/routes.py"],
+          "interfaces": ["product_page(product_id)", "search_page(query)"],
+          "test_plan": "Page tests before and after; a fake port records the calls and the keys.",
+          "risks": "Low: two call sites. Roll back by reverting the pull request."}},
+        {"title": "Repoint the report code", "weight": 1, "technical_background": {
+          "current_state": "The reports call the cache functions directly and clear every report key after the nightly import.",
+          "evidence": [{"claim": "refresh_reports drops every cached report with a prefix", "path": "shop/reports.py", "line": 15, "quote": "drop every cached report"}],
+          "approach": "Pass the port into `sales_report` and `refresh_reports`; keep the `report:` prefix.",
+          "touches": ["shop/reports.py", "new:shop/ports.py"],
+          "interfaces": ["sales_report(day)", "refresh_reports()"],
+          "test_plan": "A report test that checks the keys written and the keys removed by `refresh_reports`.",
+          "risks": "Medium: invalidation must still remove only the `report:` keys."}}
+      ]
+    },
+    {
+      "id": "S2.2", "feature": "F2", "title": "Remove the module-level cache functions", "type": "RETIRE", "horizon": "H3", "size": "S",
+      "role": "a developer who reads the cache code",
+      "want": "`shop/cache.py` reduced to the in-process adapter, with the module-level functions removed",
+      "so": "there is one way to use the cache",
+      "context": "After S2.1 only the adapter should import the old functions.",
+      "scenarios": [
+        {"title": "Only the adapter imports the old functions", "given": ["S2.1 is merged"], "when": ["I run `git grep \"from shop.cache import\" -- shop`"], "then": ["only the adapter matches"]},
+        {"title": "The deletion stands alone", "given": ["the clean-up change"], "when": ["the pull request is opened"], "then": ["it contains only the removal of the old functions and re-exports"]},
+        {"title": "The revert is rehearsed", "given": ["a scratch branch"], "when": ["the pull request is reverted"], "then": ["the old functions return and the callers work"]}
+      ],
+      "deps": ["S2.1"], "paths": ["shop/cache.py"], "prs": 1,
+      "open_questions": [{"question": "Does the nightly import job outside this repository also import the old functions?", "owner": "the job's owner"}]
+    }
+  ]
+}

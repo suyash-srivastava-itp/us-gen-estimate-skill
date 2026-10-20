@@ -1,0 +1,350 @@
+{
+  "_comment": "Questions a person answers to fill team.json. 'required' ones decide whether a forecast is trustworthy. 'suggest' values are offered as choices (the person can always type another number). mine_history.py pre-fills suggestions where history can tell; the person confirms or overrides.",
+  "questions": [
+    {
+      "key": "authors",
+      "group": "people",
+      "required": true,
+      "type": "int",
+      "unit": "people",
+      "ask": "How many people will author pull requests (working with an agent) on this work at the same time?",
+      "why": "Sets how many PRs open per day, so it also sets review load. Adding authors without reviewers makes the review queue unstable.",
+      "suggest": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "key": "author_hours_per_day",
+      "group": "people",
+      "required": true,
+      "type": "float",
+      "unit": "hours per working day",
+      "ask": "How many focused hours per working day does each author spend on this work (not counting meetings)?",
+      "why": "Converts author effort hours into elapsed working days.",
+      "suggest": [
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "key": "author_availability",
+      "group": "people",
+      "required": true,
+      "type": "float",
+      "unit": "fraction 0-1",
+      "ask": "Of those hours, what fraction is really free for THIS backlog (the rest goes to other work, support, leave)?",
+      "why": "A second time factor on top of hours per day. 0.7 means 30% of the time goes elsewhere, so every author hour takes 1/0.7 as long to appear.",
+      "suggest": [
+        0.5,
+        0.7,
+        0.85,
+        1.0
+      ]
+    },
+    {
+      "key": "reviewers",
+      "group": "review",
+      "required": true,
+      "type": "int",
+      "unit": "people",
+      "ask": "How many people review pull requests for this work? (0 means PRs merge with no independent review.)",
+      "why": "Review is an M/M/c queue: c is this number. With 0 there is no review wait and no rework in the forecast.",
+      "suggest": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "key": "reviewer_hours_per_day",
+      "group": "review",
+      "required": true,
+      "type": "float",
+      "unit": "hours per working day",
+      "ask": "How many hours per working day does a reviewer work on this project in total (reviewing and everything else)?",
+      "why": "Together with the next answer it sets how much review time exists per day.",
+      "suggest": [
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "key": "reviewer_availability",
+      "group": "review",
+      "required": true,
+      "type": "float",
+      "unit": "fraction 0-1",
+      "ask": "What fraction of a reviewer's day goes to reviewing this team's PRs (the rest is their own authoring and other work)?",
+      "why": "Reviewer capacity = hours per day x this fraction. Reviewers who also author have a small fraction.",
+      "suggest": [
+        0.1,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "key": "days_per_week",
+      "group": "calendar",
+      "required": true,
+      "type": "float",
+      "unit": "working days per week",
+      "ask": "How many days per week does the team work on this?",
+      "why": "Converts working days to calendar days and decides how much a night or weekend of unattended agent time is worth.",
+      "suggest": [
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "key": "agent_attended_fraction",
+      "group": "workflow",
+      "required": true,
+      "type": "float",
+      "unit": "fraction 0-1",
+      "ask": "While the agent works on a story, how much of that time must the author stay with it?",
+      "why": "1 = interactive (the author is steering, so the agent's run time uses the author's hours). 0 = background runs that finish overnight without the author.",
+      "suggest": [
+        1.0,
+        0.5,
+        0.25,
+        0.0
+      ]
+    },
+    {
+      "key": "release_interval_days",
+      "group": "calendar",
+      "required": true,
+      "type": "float",
+      "unit": "working days",
+      "ask": "How often does merged work reach its deployed state, in working days? (0 = every merge deploys immediately.)",
+      "why": "A merged PR waits for the next release batch: uniformly between 0 and this many days.",
+      "suggest": [
+        0,
+        1,
+        2,
+        5
+      ]
+    },
+    {
+      "key": "decision_latency_days",
+      "group": "workflow",
+      "required": true,
+      "type": "float",
+      "unit": "working days",
+      "ask": "When a story is blocked on a decision (an owner must answer), how long does the answer usually take, in working days?",
+      "why": "Sets the wait for each open question; the owners are not the authors, so this wait uses no author time.",
+      "suggest": [
+        0.5,
+        1,
+        2,
+        5
+      ]
+    },
+    {
+      "key": "parallel_sessions",
+      "group": "workflow",
+      "required": false,
+      "type": "int",
+      "unit": "stories",
+      "ask": "How many stories can one author keep in flight at once (agent running while they start another)?",
+      "why": "Used by plan.py to cap work in progress. Attended agent work cannot overlap, so this matters when agent runs are partly unattended.",
+      "suggest": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "key": "steer_h",
+      "group": "workflow",
+      "required": false,
+      "type": "float",
+      "unit": "hours per attempt",
+      "ask": "How long does an author spend reading and steering the agent's output per attempt, besides being present during the run?",
+      "why": "Author effort per attempt.",
+      "suggest": [
+        0.1,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "key": "mean_author_hours_per_pr",
+      "group": "workflow",
+      "required": false,
+      "type": "float",
+      "unit": "author hours per PR",
+      "ask": "On average, how many author hours go into one pull request?",
+      "why": "With the number of authors it sets PR arrivals (the review load) unless a measured PR rate is given.",
+      "suggest": [
+        1,
+        3,
+        6,
+        12
+      ]
+    },
+    {
+      "key": "pr_arrivals_per_day",
+      "group": "workflow",
+      "required": false,
+      "type": "float",
+      "unit": "PRs per working day",
+      "ask": "How many PRs does this team open per working day? (Leave to derive it from authors and hours per PR.)",
+      "why": "A measured rate overrides the derived one.",
+      "suggest": [
+        0.5,
+        1,
+        2,
+        4
+      ]
+    },
+    {
+      "key": "lines_per_reviewer_hour",
+      "group": "review",
+      "required": false,
+      "type": "float",
+      "unit": "changed lines per hour",
+      "ask": "How many changed lines can a reviewer get through per hour of review?",
+      "why": "Review effort per PR = diff lines / this. Mechanical moves are reviewed by proof, not line by line.",
+      "suggest": [
+        100,
+        200,
+        400,
+        800
+      ]
+    },
+    {
+      "key": "mean_pr_lines",
+      "group": "review",
+      "required": false,
+      "type": "float",
+      "unit": "changed lines",
+      "ask": "What is a typical (mean) PR size in changed lines?",
+      "why": "Sets reviewer service rate.",
+      "suggest": [
+        200,
+        500,
+        1000,
+        2000
+      ]
+    },
+    {
+      "key": "agent_speed",
+      "group": "workflow",
+      "required": false,
+      "type": "float",
+      "unit": "x",
+      "ask": "How many hours of human-equivalent work does the agent complete per hour it runs?",
+      "why": "Scales scope hours into agent run time.",
+      "suggest": [
+        2,
+        4,
+        8,
+        16
+      ]
+    },
+    {
+      "key": "ci_hours",
+      "group": "workflow",
+      "required": false,
+      "type": "float",
+      "unit": "hours per attempt",
+      "ask": "How long does CI and verification take per attempt (wall clock)?",
+      "why": "Added to every attempt.",
+      "suggest": [
+        0.05,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "key": "triage_h",
+      "group": "workflow",
+      "required": false,
+      "type": "float",
+      "unit": "hours per failed attempt",
+      "ask": "How long does triaging a failed attempt take an author?",
+      "why": "Author effort per retry.",
+      "suggest": [
+        0.25,
+        0.5,
+        1.0,
+        2.0
+      ]
+    },
+    {
+      "key": "deploy_h",
+      "group": "calendar",
+      "required": false,
+      "type": "float",
+      "unit": "hours",
+      "ask": "How long does a deploy itself take once a release batch starts?",
+      "why": "Added after the batch wait.",
+      "suggest": [
+        0.1,
+        0.5,
+        1.0,
+        2.0
+      ]
+    },
+    {
+      "key": "size_scale",
+      "group": "sizing",
+      "required": false,
+      "stories": true,
+      "type": "preset",
+      "unit": "focused hours per size",
+      "ask": "Which focused-hours scale should story sizes use? (Focused hours: one person working with the agent from starting the branch to a pull request ready for review, with no waiting.)",
+      "why": "Turns a story's size (S, M, L, XL) into the focused hours the estimate starts from. It is your input, not a measurement; the presets are starting points.",
+      "suggest": [
+        "agent_assisted",
+        "agent_assisted_refactor",
+        "conservative",
+        "human_only"
+      ]
+    },
+    {
+      "key": "focused_includes_retries",
+      "group": "sizing",
+      "required": false,
+      "stories": true,
+      "type": "float",
+      "unit": "1 or 0",
+      "ask": "Do your focused-hour sizes already include retries and steering (as measured actuals do), or are they the hours of one clean attempt?",
+      "why": "1 scopes each attempt at the focused hours divided by the expected attempts, so the model's retries bring the total back to the focused hours. 0 lets the model add its own retries on top (the safer, longer reading).",
+      "suggest": [
+        1,
+        0
+      ]
+    },
+    {
+      "key": "typical_pr_lines",
+      "group": "sizing",
+      "required": false,
+      "stories": true,
+      "type": "float",
+      "unit": "changed lines",
+      "ask": "What is a typical (median) pull request size, in changed lines?",
+      "why": "A story's diff size is its number of PRs times this, unless the story gives its own. It drives review effort and rework probability.",
+      "suggest": [
+        200,
+        400,
+        800,
+        1500
+      ]
+    }
+  ]
+}
